@@ -75,4 +75,45 @@ If we have multiple slides (one per module), organized as follows;
 ```
 
 Make sure, there is only one PPTX file in each subdirectory.
-We can run ./automate.sh to process all of them at once.
+
+We can run ./automate.sh to process all of them at once. Example run;
+
+```bash
+./automate.sh
+Default PATH to Root Folder: /Users/tekeoglua/Desktop/Research/autonomic/jhu/course/slides/Spring24
+Do you want to change the path to the modules root? (y/n)
+n
+Using Default PATH to Root Folder: /Users/tekeoglua/Desktop/Research/autonomic/jhu/course/slides/Spring24
+/Users/tekeoglua/Desktop/Research/autonomic/jhu/course/slides/Spring24
+├── Module 1
+│   └── Autonomic-Module1_v3.pptx
+├── Module 10
+│   └── Autonomic-Module10_v3.pptx
+├── Module 11
+│   └── Autonomic-Module11_v4.pptx
+├── Module 2
+│   └── Autonomic-Module2_v3.pptx
+├── Module 3
+│   └── Autonomic-Module3_v2.pptx
+├── Module 4
+│   └── Autonomic-Module4_v3.pptx
+├── Module 5
+│   └── Autonomic-Module5a_v3.pptx
+├── Module 6
+│   └── Autonomic-Module6_v3.pptx
+├── Module 7
+│   └── Autonomic-Module7_v3.pptx
+├── Module 8
+│   └── Autonomic-Module8_v2.pptx
+└── Module 9
+    └── Autonomic-Module9_v3.pptx
+
+12 directories, 11 files
+===================================================
+(1) List alt-text for all images in .pptx files
+(2) Extract all images from .pptx files.
+(3) Get auto-captions from Vertex-AI for images.
+(4) Update alt-text for each image in place.
+===================================================
+Choose 1-4:
+```
