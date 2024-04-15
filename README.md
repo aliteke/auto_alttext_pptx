@@ -15,7 +15,7 @@ pip install requests
 
 - Obtain the caption predictions from Google's VertexAI for each extracted image in the directory. Writes the captions with the corresponding image name in a csv file. Bearer token should be gathered from Google Cloud Console with $ gcloud auth print-access-token. Also, projectNameID field should be changed inside the code, as well as location (see getCaption() function definition.)
 
-   ```$ python3 auto_alt_text_for_pptx.py -d . -o record_captions.csv  -b <auth_session_bearer>```
+   ```$ python3 auto_alt_text_for_pptx.py --dir . --output record_captions.csv  --bearer <auth_session_bearer>```
 
 - Using the csv file, it updates the Alternative Text of each matching image in-place and saves the updated PPTX.
 
@@ -42,3 +42,37 @@ optional arguments:
   -u UPDATE, --update UPDATE
                         to update the Alternative Text for the images. Need to provide a csv file generated with --output in a prev run from --dir or --image
 ```
+
+# Automate processing multiple pptx in different subfolders:
+
+If we have multiple slides (one per module), organized as follows;
+```bash
+➜  auto_alttext_pptx git:(main) ✗ tree .
+/Users/tekeoglua/Desktop/Research/autonomic/jhu/course/slides/Spring24
+├── Module 1
+│   └── Autonomic-Module1_v3.pptx
+├── Module 10
+│   └── Autonomic-Module10_v3.pptx
+├── Module 11
+│   └── Autonomic-Module11_v4.pptx
+├── Module 2
+│   └── Autonomic-Module2_v3.pptx
+├── Module 3
+│   └── Autonomic-Module3_v2.pptx
+├── Module 4
+│   └── Autonomic-Module4_v3.pptx
+├── Module 5
+│   └── Autonomic-Module5a_v3.pptx
+├── Module 6
+│   └── Autonomic-Module6_v3.pptx
+├── Module 7
+│   └── Autonomic-Module7_v3.pptx
+├── Module 8
+│   └── Autonomic-Module8_v2.pptx
+└── Module 9
+    └── Autonomic-Module9_v3.pptx
+
+```
+
+Make sure, there is only one PPTX file in each subdirectory.
+We can run ./automate.sh to process all of them at once.

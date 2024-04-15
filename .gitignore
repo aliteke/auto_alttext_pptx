@@ -3,3 +3,7 @@
 *.log
 *.csv
 *.pdf
+*.jpg
+*.tiff
+*.gif
+*.vscode

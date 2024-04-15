@@ -18,17 +18,33 @@ import csv
 
 # TODO: Take a look at this repository: https://github.com/waltervanheuven/auto-alt-text
 # TODO: Tutorial https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/image-captioning
+SLEEP_TIME = 4
 
 def getCaptionsForDir(dirName, bearer, outputFile):
-    for image in tqdm([ y for y in os.listdir(".") if "png" in y.lower()]):
-        print("[+] Sleeping 2 seconds....")
-        time.sleep(2)
-        getCaption(image, bearer, outputFile)
+    """ Chek if output file exists. If exists; find the images that doesn't have a caption listed in the outputFile, and get the caption for them."""
+    lst_existing_captions=list()
+    lst_images = [y for y in os.listdir(dirName) if "png" in y.lower() or "jpg" in y.lower() or "jpeg" in y.lower() or "gif" in y.lower() or "tiff" in y.lower()]
+
+    if os.path.exists(outputFile):
+        with open(outputFile, 'r') as file:
+            lines = csv.reader(file)
+            for l in lines:
+                lst_existing_captions.append(os.path.basename(l[0]))
+
+    lst_missing_captions = list(set(lst_images) - set(lst_existing_captions))
+    print(f"[+] Missing captions for: {lst_missing_captions}")
+    for image in tqdm(lst_missing_captions):
+        print(f"[+] Sleeping {SLEEP_TIME} seconds....")
+        time.sleep(SLEEP_TIME)
+        print(f"[+] Getting caption for {image}")
+        getCaption(os.path.join(dirName, image), bearer, outputFile)
 
 
-def getCaption(imageName, bearer, outputFile):
+def getCaption(imageName, bearer, outputFile): 
     """ we got the authorizaion bearer through Google-Cloud-Console command:
         aliteke@cloudshell:~/images (rising-analogy-272214)$ gcloud auth print-access-token
+        [!] imageName should be the full path to the image file!
+        [!] outputFile should be the full path to the output file!
     """
     projectNameID = "rising-analogy-272214"
     location = "us-central1"
@@ -46,23 +62,30 @@ def getCaption(imageName, bearer, outputFile):
     print(f"[+] Request: url: {url}, headers: {headers}")
     print(f"[+] Status: {response.status_code}, Caption for {imageName}: {response.json()}")
     if response.status_code == 429:
-        time.sleep(1)
-        print("[+] Recursively calling itself again in a 15 seconds...")
-        time.sleep(15)
+        print(f"[+] Recursively calling itself again in a {SLEEP_TIME*5} seconds...")
+        time.sleep(SLEEP_TIME*5)
         getCaption(imageName, bearer, outputFile)
-    else:
-        #result=json.dumps({imageName : response.json()})
-        with open(outputFile, 'a') as f:
-            f.write(f"{imageName},\"{response.json()['predictions'][0]}\"\n")
+    elif response.status_code == 401:
+        print(f"[!] Response: {response.json()}")
+        sys.exit(f"[!] 401: Something wrong with Bearer token...")
+        
+    elif response.status_code == 200:
+        if len(response.json())>=1:
+            with open(outputFile, 'a') as f:
+                f.write(f"{imageName},\"{response.json()['predictions'][0]}\"\n")
+        elif len(response.json())==0:
+            with open(outputFile, 'a') as f:
+                f.write(f"{imageName},\"not available:\"\n")
 
+    
 def getB64forImage(imageName):
     with open(f"{imageName}", "rb") as image_file:
         data = base64.b64encode(image_file.read()).decode('utf-8')
     return data
 
 
-def writeImageToFile(pageNum, shapeNum, imageBytes, extension):
-    fname = f"image_pg{pageNum}_idx{shapeNum}.{extension}"
+def writeImageToFile(dirName, pageNum, shapeNum, imageBytes, extension):
+    fname = f"{dirName}/image_pg{pageNum}_idx{shapeNum}.{extension}"
     print(f"[+] Writing image to file: {fname}") 
     
     if not os.path.exists(fname):
@@ -78,9 +101,16 @@ def shape_alt_text(shape: BaseShape) -> str:
 
 
 def shape_alt_text_set(shape: BaseShape, alt_text: str):
-    """Alt-text defined in shape's `descr` attribute, or "" if not present."""
+    """Change the Alt-text that is defined in shape's `descr` attribute """
     shape._element._nvXxPr.cNvPr.descr = alt_text
     print(f'[+] AFTER INSERT to DICTIONARY: {shape._element._nvXxPr.cNvPr.items()}')
+
+
+def listImageAlttexts(pptxFname):
+    prs = Presentation(pptxFname.replace("\\", ""))
+    for slideNum, slide in enumerate(prs.slides):
+        for shapeNum, shape in enumerate([s for s in slide.shapes if hasattr(s, 'image')]):
+            print(f"Slide#: {slideNum}, Shape# {shapeNum}, SlideID: {slide.slide_id}, Shape_type: {shape.shape_type}, Alt Text: {shape_alt_text(shape)}, ImageEXT: {shape.image.ext}")
 
 
 def getAltTextFromPredsFile(genCaptionsFname, imageFname):
@@ -93,7 +123,7 @@ def getAltTextFromPredsFile(genCaptionsFname, imageFname):
     for item in preds:
         fname =  item[0]
         pred = item[1]
-        if imageFname == fname:
+        if imageFname in fname:
             return pred
 
 
@@ -101,7 +131,8 @@ def updateImageAlttexts(pptxFname, genCaptionsFname):
     print(f"[+] Updating image alt text for ppt file: {pptxFname} with captions from: {genCaptionsFname}")
     prs = Presentation(pptxFname)
     for slideNum, slide in enumerate(prs.slides):
-        for shapeNum, shape in enumerate([s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]):
+        #for shapeNum, shape in enumerate([s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]):
+        for shapeNum, shape in enumerate([s for s in slide.shapes if hasattr(s, 'image')]):
             imageFname = f"image_pg{slideNum}_idx{shapeNum}.{shape.image.ext}"
             alt_text = getAltTextFromPredsFile(genCaptionsFname, imageFname)
             print(f"[+] Setting AltText: {alt_text} for {imageFname}")
@@ -113,11 +144,13 @@ def updateImageAlttexts(pptxFname, genCaptionsFname):
 def extractImagesFromPPTX(fname):
     prs = Presentation(fname)
     for slideNum, slide in enumerate(prs.slides):
-        for shapeNum, shape in enumerate([s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]):
+        #for shapeNum, shape in enumerate([s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]):
+        for shapeNum, shape in enumerate([s for s in slide.shapes if hasattr(s, 'image')]):
             #print(f"Slide#: {slideNum}, Shape# {shapeNum}, SlideID: {slide.slide_id}, Shape_type: {shape.shape_type}")
             image_bytes = shape.image.blob    # image's file contents
             #shape_alt_text_set(shape, "Test Alternative Text ALI...")
-            writeImageToFile(slideNum, shapeNum, image_bytes, shape.image.ext)
+            dirName=os.path.dirname(fname)
+            writeImageToFile(dirName, slideNum, shapeNum, image_bytes, shape.image.ext)
 
     # TODO: Save the changes to alt-text
     #prs.save(fname)
@@ -125,25 +158,26 @@ def extractImagesFromPPTX(fname):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Extract images from PPTX")
-    parser.add_argument('-p', '--pptx', required=False, help=".pptx filename to extract images")
-    parser.add_argument('-i', '--image', required=False, help=".png filename to get a caption from GoogleCloudVertex")
-    parser.add_argument('-d', '--dir', required=False, help="a directory of .png images (extracted from a .pptx file) to get the caption for.")
+    parser.add_argument('-p', '--pptx', required=False, type=str, help=".pptx filename to extract images")
+    parser.add_argument('-i', '--image', required=False, type=str, help=".png filename to get a caption from GoogleCloudVertex")
+    parser.add_argument('-d', '--dir', required=False, type=str, help="a directory of .png images (extracted from a .pptx file) to get the caption for.")
     parser.add_argument('-b', '--bearer', required=False, help="GoogleCloud VertexAI auth token, can be obtained by running `$ gcloud auth print-access-token` on the cloudshell")
-    parser.add_argument('-o', '--output', required=False, help="When using -dir or -image, we need to provide an output file to write the caption responses from GoogleCloud")
-    parser.add_argument('-u', '--update', required=False, help="to update the Alternative Text for the images. Need to provide a csv file generated with --output in a prev run from --dir or --image")
+    parser.add_argument('-o', '--output', required=False, type=str, help="When using -dir or -image, we need to provide an output file to write the caption responses from GoogleCloud")
+    parser.add_argument('-u', '--update', required=False, type=str, help="to update the Alternative Text for the images. Need to provide a csv file generated with --output in a prev run from --dir or --image")
+    parser.add_argument('-l', '--list', action='store_true', required=False, help="list all the images and their Alternative Texts in the pptx file")
     args = parser.parse_args()
 
     if args.pptx and args.image and args.dir:
         sys.exit(f"[!] Only provide one flag; either PNG image, PPTX file, or a directory")
 
-    if args.pptx and not args.update:
+    if args.pptx and not args.update and not args.list:
         if not os.path.exists(f"{args.pptx}"):
             sys.exit(f"[!] {args.pptx} doesn't exist")
         extractImagesFromPPTX(args.pptx)
 
     elif args.image and args.bearer and args.output:
-        if not os.path.exists(f"{args.image}"):
-            sys.exit(f"[!] {args.image} doesn't exist")
+        if not os.path.exists(f"{args.image}") or not os.path.exists(f"{args.output}"):
+            sys.exit(f"[!] {args.image} or {args.output} doesn't exist")
         getCaption(args.image, args.bearer, args.output)
 
     elif args.dir and args.bearer and args.output:
@@ -155,6 +189,11 @@ if __name__ == "__main__":
         if not os.path.exists(f"{args.update}") or not os.path.exists(f'{args.pptx}'):
             sys.exit(f"[!] {args.update} or {args.pptx} doesn't exist")
         updateImageAlttexts(args.pptx, args.update)
+
+    elif args.pptx and args.list:
+        if not os.path.exists(f'{args.pptx}'):
+            sys.exit(f"[!] {args.pptx} doesn't exist")
+        listImageAlttexts(args.pptx)
 
     else:
         print(f"[!] invalid...")
