@@ -13,7 +13,7 @@ pip install requests
 
    ```$ python3 auto_alt_text_for_pptx.py --pptx Autonomic-Module9_v3.pptx```
 
-- Obtain the caption predictions from Google's VertexAI for each extracted image in the directory. Writes the captions with the corresponding image name in a csv file. Bearer token should be gathered from Google Cloud Console with $ gcloud auth print-access-token. Also, projectNameID field should be changed inside the code, as well as location (see getCaption() function definition.)
+- Obtain the caption predictions from Google's VertexAI for each extracted image in the directory. Writes the captions with the corresponding image name in a csv file. Bearer token should be gathered from Google Cloud Console with ```$ gcloud auth print-access-token```. Also, `projectNameID` field should be changed inside the code, as well as `location` (see `getCaption()` function definition.)
 
    ```$ python3 auto_alt_text_for_pptx.py --dir . --output record_captions.csv  --bearer <auth_session_bearer>```
 

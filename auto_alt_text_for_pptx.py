@@ -103,7 +103,7 @@ def shape_alt_text(shape: BaseShape) -> str:
 def shape_alt_text_set(shape: BaseShape, alt_text: str):
     """Change the Alt-text that is defined in shape's `descr` attribute """
     shape._element._nvXxPr.cNvPr.descr = alt_text
-    print(f'[+] AFTER INSERT to DICTIONARY: {shape._element._nvXxPr.cNvPr.items()}')
+    #print(f'[+] AFTER INSERT to DICTIONARY: {shape._element._nvXxPr.cNvPr.items()}')
 
 
 def listImageAlttexts(pptxFname):
@@ -141,6 +141,19 @@ def updateImageAlttexts(pptxFname, genCaptionsFname):
     prs.save(pptxFname)
 
 
+def resetImageAlttexts(pptxFname):
+    """Resets all the Alt-texts to empty string for the images in the pptx file."""
+    prs = Presentation(pptxFname)
+    for slideNum, slide in enumerate(prs.slides):
+        #for shapeNum, shape in enumerate([s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.PICTURE]):
+        for shapeNum, shape in enumerate([s for s in slide.shapes if hasattr(s, 'image')]):
+            imageFname = f"image_pg{slideNum}_idx{shapeNum}.{shape.image.ext}"
+            print(f"[+] Resetting AltText to empty string for {imageFname}")
+            shape_alt_text_set(shape, "")
+    
+    prs.save(pptxFname)
+
+
 def extractImagesFromPPTX(fname):
     prs = Presentation(fname)
     for slideNum, slide in enumerate(prs.slides):
@@ -165,10 +178,16 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output', required=False, type=str, help="When using -dir or -image, we need to provide an output file to write the caption responses from GoogleCloud")
     parser.add_argument('-u', '--update', required=False, type=str, help="to update the Alternative Text for the images. Need to provide a csv file generated with --output in a prev run from --dir or --image")
     parser.add_argument('-l', '--list', action='store_true', required=False, help="list all the images and their Alternative Texts in the pptx file")
+    parser.add_argument('-r', '--reset', action='store_true', required=False, help="if turned on, resets all the Alternative Texts to empty string in the pptx file")
+    
     args = parser.parse_args()
 
     if args.pptx and args.image and args.dir:
         sys.exit(f"[!] Only provide one flag; either PNG image, PPTX file, or a directory")
+
+    if args.pptx and args.reset:
+        resetImageAlttexts(args.pptx)
+        sys.exit(f"[+] Finished, reseting all the Alt-texts to empty string in the pptx file {args.pptx}")
 
     if args.pptx and not args.update and not args.list:
         if not os.path.exists(f"{args.pptx}"):
